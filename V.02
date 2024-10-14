@@ -1,0 +1,154 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <iomanip>
+#include <numeric>
+#include <fstream>
+#include <sstream>
+#include <random>
+#include <chrono>
+
+class Studentas {
+private:
+    std::string vardas;
+    std::string pavarde;
+    std::vector<int> nd; // Namų darbų balai
+    int egzaminas;
+    double galutinis;
+
+public:
+    Studentas(std::string v, std::string p, std::vector<int> n, int e)
+        : vardas(v), pavarde(p), nd(n), egzaminas(e) {
+        galutinis = 0.0;
+    }
+    Studentas(const Studentas& other)
+        : vardas(other.vardas), pavarde(other.pavarde), nd(other.nd), egzaminas(other.egzaminas), galutinis(other.galutinis) {}
+
+    ~Studentas() {}
+
+    void skaiciuotiGalutiniVid() {
+        double vidurkis = std::accumulate(nd.begin(), nd.end(), 0.0) / nd.size();
+        galutinis = 0.4 * vidurkis + 0.6 * egzaminas;
+    }
+
+    void skaiciuotiGalutiniMed() {
+        std::sort(nd.begin(), nd.end());
+        double mediana = (nd.size() % 2 == 0) ? (nd[nd.size() / 2 - 1] + nd[nd.size() / 2]) / 2.0 : nd[nd.size() / 2];
+        galutinis = 0.4 * mediana + 0.6 * egzaminas;
+    }
+
+    void isvesti() const {
+        std::cout << std::left << std::setw(15) << pavarde << std::setw(15) << vardas
+                  << std::setw(10) << std::fixed << std::setprecision(2) << galutinis << std::endl;
+    }
+
+    double gautiGalutini() const {
+        return galutinis;
+    }
+
+    std::string gautiVarda() const {
+        return vardas;
+    }
+    
+    std::string gautiPavarde() const {
+        return pavarde;
+    }
+
+    static Studentas generuotiAtsitiktini(int index) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dist(1, 10);
+        std::vector<int> nd(5);
+        for (int& n : nd) {
+            n = dist(gen);
+        }
+        int egzaminas = dist(gen);
+        return Studentas("Vardas" + std::to_string(index), "Pavarde" + std::to_string(index), nd, egzaminas);
+    }
+};
+
+std::vector<Studentas> nuskaitytiDuomenisIsFailo(const std::string& failoPavadinimas) {
+    std::ifstream failas(failoPavadinimas);
+    std::vector<Studentas> studentai;
+    std::string eilute;
+
+    if (!failas) {
+        throw std::runtime_error("Nepavyko atidaryti failo!");
+    }
+
+    // Pirmą eilutę praleidžiame (antraštės)
+    std::getline(failas, eilute);
+
+    while (std::getline(failas, eilute)) {
+        std::stringstream ss(eilute);
+        std::string vardas, pavarde;
+        std::vector<int> nd(5);
+        int egzaminas;
+
+        ss >> pavarde >> vardas;
+        for (int& n : nd) {
+            ss >> n;
+        }
+        ss >> egzaminas;
+
+        studentai.push_back(Studentas(vardas, pavarde, nd, egzaminas));
+    }
+    return studentai;
+}
+
+void issaugotiStudentusIFaila(const std::vector<Studentas>& studentai, const std::string& failoPavadinimas) {
+    std::ofstream failas(failoPavadinimas);
+    failas << std::left << std::setw(15) << "Pavarde" << std::setw(15) << "Vardas"
+           << std::setw(10) << "Galutinis" << std::endl;
+    failas << "----------------------------------------" << std::endl;
+
+    for (const auto& s : studentai) {
+        failas << std::left << std::setw(15) << s.gautiPavarde() << std::setw(15) << s.gautiVarda()
+               << std::setw(10) << std::fixed << std::setprecision(2) << s.gautiGalutini() << std::endl;
+    }
+}
+
+// Surūšiuoja studentus į dvi kategorijas pagal galutinį balą
+void rusiavimasIKategorijas(const std::vector<Studentas>& studentai, std::vector<Studentas>& kietiakiai, std::vector<Studentas>& vargsiukai) {
+    for (const auto& studentas : studentai) {
+        if (studentas.gautiGalutini() >= 5.0) {
+            kietiakiai.push_back(studentas);
+        } else {
+            vargsiukai.push_back(studentas);
+        }
+    }
+}
+
+int main() {
+    // v0.1 įvedimas, galutinio balo skaičiavimas ir išvedimas
+    try {
+        std::vector<Studentas> studentai;
+        studentai = nuskaitytiDuomenisIsFailo("kursiokai.txt");
+        for (auto& s : studentai) {
+            s.skaiciuotiGalutiniVid();  // Galime pasirinkti tarp vidurkio arba medianos
+            s.isvesti();
+        }
+
+        // v0.2 studentų failų generavimas
+        std::vector<Studentas> atsitiktiniaiStudentai;
+        const int studentuSk = 1000000; // Generuojam didelį kiekį studentų
+        for (int i = 1; i <= studentuSk; ++i) {
+            atsitiktiniaiStudentai.push_back(Studentas::generuotiAtsitiktini(i));
+        }
+
+        for (auto& s : atsitiktiniaiStudentai) {
+            s.skaiciuotiGalutiniVid();
+        }
+
+        std::vector<Studentas> kietiakiai, vargsiukai;
+        rusiavimasIKategorijas(atsitiktiniaiStudentai, kietiakiai, vargsiukai);
+
+        issaugotiStudentusIFaila(kietiakiai, "kietiakiai.txt");
+        issaugotiStudentusIFaila(vargsiukai, "vargsiukai.txt");
+
+    } catch (const std::exception& e) {
+        std::cerr << "Klaida: " << e.what() << std::endl;
+    }
+
+    return 0;
+}
