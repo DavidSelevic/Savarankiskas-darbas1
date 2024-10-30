@@ -1,0 +1,98 @@
+#include <iostream>
+#include <vector>
+#include <iomanip>
+#include <fstream>
+#include <stdexcept>
+#include <algorithm>
+#include <string>
+
+class Student {
+private:
+    std::string firstName;
+    std::string lastName;
+    std::vector<double> homeworkScores;
+    double examScore;
+    double finalScore;
+
+public:
+    Student(const std::string& firstName, const std::string& lastName)
+        : firstName(firstName), lastName(lastName), examScore(0), finalScore(0) {}
+    Student(const Student& other) = default;
+    Student& operator=(const Student& other) = default;
+    ~Student() = default;
+    void input() {
+        std::cout << "Iveskite namu darbu rezultatus (baigti - paspauskite -1):\n";
+        double score;
+        while (true) {
+            std::cin >> score;
+            if (score == -1) break;
+            homeworkScores.push_back(score);
+        }
+        std::cout << "Iveskite egzamino rezultata:\n";
+        std::cin >> examScore;
+    }
+    void calculateFinalScore(bool useMedian = false) {
+        double average = 0;
+        if (!homeworkScores.empty()) {
+            if (useMedian) {
+                std::sort(homeworkScores.begin(), homeworkScores.end());
+                size_t size = homeworkScores.size();
+                if (size % 2 == 0)
+                    average = (homeworkScores[size / 2 - 1] + homeworkScores[size / 2]) / 2;
+                else
+                    average = homeworkScores[size / 2];
+            } else {
+                for (double score : homeworkScores) {
+                    average += score;
+                }
+                average /= homeworkScores.size();
+            }
+        }
+        finalScore = 0.4 * average + 0.6 * examScore;
+    }
+    void print(std::ostream& os) const {
+        os << std::setw(10) << lastName << std::setw(10) << firstName
+           << std::setw(10) << std::fixed << std::setprecision(2) << finalScore << "\n";
+    }
+    double getFinalScore() const {
+        return finalScore;
+    }
+    std::string getFirstName() const {
+        return firstName;
+    }
+};
+int main() {
+    try {
+        std::vector<Student> students;
+        std::ifstream infile("studentai10000.txt");
+        
+        if (!infile) {
+            throw std::runtime_error("Nepavyko atidaryti failo!");
+        }
+
+        std::string firstName, lastName;
+        double score;
+        
+        while (infile >> lastName >> firstName) {
+            Student student(firstName, lastName);
+            while (infile >> score) {
+                if (infile.peek() == '\n') break; // Stop reading scores at the end of the line
+                student.homeworkScores.push_back(score);
+            }
+            infile >> student.examScore;
+            students.push_back(student);
+        }
+        for (Student& student : students) {
+            student.calculateFinalScore();
+        }
+        std::cout << "Pavardė     Vardas       Galutinis\n";
+        std::cout << "--------------------------------------\n";
+        for (const Student& student : students) {
+            student.print(std::cout);
+        }
+}
+catch (const std::exception& e) {
+        std::cerr << "Klaida: " << e.what() << std::endl;
+    }
+    return 0;
+}
